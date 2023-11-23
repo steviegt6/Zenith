@@ -9,37 +9,31 @@ namespace Zenith;
 
 public class PrimitiveSystem : ModSystem
 {
-    private readonly Dictionary<string, RenderingStepData> renderData;
-
-    public PrimitiveSystem()
-    {
-        renderData = new Dictionary<string, RenderingStepData>();
-    }
+    private readonly Dictionary<string, RenderingStepData> renderData = new();
 
     public override void Load()
     {
         On_Main.DrawProjectiles += DrawRenderTargets;
 
-        Main.OnResolutionChanged += resolution =>
-        {
-            TargetsNeedResizing();
-        };
+        Main.OnResolutionChanged += HookTargetsNeedResizing;
     }
 
     public override void Unload()
     {
-        Main.OnResolutionChanged -= resolution =>
-        {
-            TargetsNeedResizing();
-        };
+        Main.OnResolutionChanged -= HookTargetsNeedResizing;
 
-        foreach (RenderingStepData data in renderData.Values)
+        Main.RunOnMainThread(() =>
         {
-            Main.RunOnMainThread(() =>
+            foreach (RenderingStepData data in renderData.Values)
             {
                 data.RenderTarget.Dispose();
-            });
-        }
+            }
+        });
+    }
+
+    private void HookTargetsNeedResizing(Vector2 _)
+    {
+        TargetsNeedResizing();
     }
 
     public override void PostUpdateEverything()
@@ -58,9 +52,9 @@ public class PrimitiveSystem : ModSystem
             device.SetRenderTarget(renderData[id].RenderTarget);
             device.Clear(Color.Transparent);
 
-            for (int i = 0; i < renderData[id].RenderEntries.Count; i++)
+            foreach (Action action in renderData[id].RenderEntries)
             {
-                renderData[id].RenderEntries[i].Invoke();
+                action.Invoke();
             }
 
             device.SetRenderTargets(bindings);
